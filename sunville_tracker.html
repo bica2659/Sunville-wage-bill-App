@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunville Developers — Cost & Wage Bill Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --nav:#1F6E43;--nav2:#155232;--navl:#E8F5E9;
+  --amb:#E8A020;--ambl:#FFFBEB;
+  --bg:#F2F5FA;--card:#fff;--bdr:#DDE3ED;
+  --tx:#1E293B;--tx2:#64748B;--tx3:#94A3B8;
+  --grn:#15803D;--grnl:#DCFCE7;--grn2:#16A34A;
+  --wrn:#B45309;--wrnl:#FEF9EF;
+  --red:#B91C1C;--redl:#FEE2E2;
+  --rad:10px;--rad2:6px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+     background:var(--bg);color:var(--tx);font-size:13px;line-height:1.45}
+select,input,textarea{font-family:inherit;font-size:13px;color:var(--tx)}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect,useMemo}=React;
+const e=React.createElement;
+
+// ── Colours ────────────────────────────────────────────────────────────────
+const C={
+  nav:"#1F6E43",nav2:"#155232",navl:"#E8F5E9",
+  amb:"#E8A020",ambl:"#FFFBEB",
+  bg:"#F2F5FA",card:"#fff",bdr:"#DDE3ED",
+  tx:"#1E293B",tx2:"#64748B",tx3:"#94A3B8",
+  grn:"#15803D",grnl:"#DCFCE7",grn2:"#16A34A",
+  wrn:"#B45309",wrnl:"#FEF9EF",
+  red:"#B91C1C",redl:"#FEE2E2",
+};
+
+// ── Sites ──────────────────────────────────────────────────────────────────
+const SITES=["ALEXANDRITE","AMBER","AMETHYST","AQUAMARINE","BERYL","BLACK OPAL",
+ "CITRINE","CORAL","GARNET HEIGHTS","HAMERGITE","HESSONITE 1","JADE 1","JADE 2",
+ "MOONSTONE","OASIS SPRING","PRIME COURT 1","PRIME COURT 2","PRIME COURT 3",
+ "PRIME COURT 4","RUBELLITE","SUNSTONE","TANZANITE","TURQUOISE","ZIRCON"];
+
+// ── Generic Construction Work Elements (BOQ framework for all Sunville sites) ─
+const ELEMENTS={
+ PRELIM:{code:"A",label:"Preliminaries",items:[
+  {ref:"A1",desc:"Site clearing, stripping & mobilisation",unit:"Lot"},
+  {ref:"A2",desc:"Site security, hoarding & perimeter fence",unit:"Lot"},
+  {ref:"A3",desc:"Equipment, plant hire & small tools",unit:"Lot"},
+  {ref:"A4",desc:"Water supply for construction purposes",unit:"Lot"},
+  {ref:"A5",desc:"Electricity / generator hire & fuel",unit:"Lot"},
+  {ref:"A6",desc:"Site office, stores & sanitation facilities",unit:"Lot"},
+  {ref:"A7",desc:"Debris removal & site cleanup on completion",unit:"Lot"},
+  {ref:"A8",desc:"Overheads, profit & sundry preliminaries",unit:"Lot"},
+ ]},
+ SUBST:{code:"B",label:"Substructure",items:[
+  {ref:"B1",desc:"Excavation & earthworks",unit:"m³"},
+  {ref:"B2",desc:"Blinding concrete 1:4:8 (50mm)",unit:"m³"},
+  {ref:"B3",desc:"1000-gauge polythene DPM membrane",unit:"m²"},
+  {ref:"B4",desc:"Anti-termite treatment (Dieldrix)",unit:"m²"},
+  {ref:"B5",desc:"RC raft slab concrete 1:2:4 (175mm)",unit:"m³"},
+  {ref:"B6",desc:"RC raft ground beams concrete 1:2:4",unit:"m³"},
+  {ref:"B7",desc:"Formwork to vertical sides of raft beams",unit:"m²"},
+  {ref:"B8",desc:"Reinforcement bars — raft slab (Y12 T&B)",unit:"kg"},
+  {ref:"B9",desc:"Reinforcement bars — raft beams (all diameters)",unit:"kg"},
+  {ref:"B10",desc:"Backfilling & compaction",unit:"m³"},
+  {ref:"B11",desc:"Setting out & benchmark handing over",unit:"Lot"},
+ ]},
+ FRAME:{code:"C",label:"Frame & Structural Concrete",items:[
+  {ref:"C1",desc:"RC column concrete 1:2:4",unit:"m³"},
+  {ref:"C2",desc:"Formwork to column faces",unit:"m²"},
+  {ref:"C3",desc:"Column reinforcement (Y16 main bars)",unit:"kg"},
+  {ref:"C4",desc:"Column links (R08 @ 125mm c/c)",unit:"kg"},
+  {ref:"C5",desc:"RC suspended slab concrete 1:2:4",unit:"m³"},
+  {ref:"C6",desc:"Formwork to slab soffit",unit:"m²"},
+  {ref:"C7",desc:"Slab reinforcement (Y12 @ 175mm c/c T&B)",unit:"kg"},
+  {ref:"C8",desc:"RC beam concrete 1:2:4",unit:"m³"},
+  {ref:"C9",desc:"Formwork to beam soffit & sides",unit:"m²"},
+  {ref:"C10",desc:"Beam reinforcement (Y16 main, Y10 links)",unit:"kg"},
+  {ref:"C11",desc:"RC lintel concrete 1:2:4",unit:"m³"},
+  {ref:"C12",desc:"Formwork to lintels",unit:"m²"},
+  {ref:"C13",desc:"Lintel reinforcement (Y12 + R06 links)",unit:"kg"},
+  {ref:"C14",desc:"RC staircase & landing concrete",unit:"m³"},
+  {ref:"C15",desc:"Staircase formwork (soffits, risers, landings)",unit:"m²"},
+  {ref:"C16",desc:"Staircase reinforcement (Y12 waist bars)",unit:"kg"},
+ ]},
+ BLOCK:{code:"D",label:"Masonry & Blockwork",items:[
+  {ref:"D1",desc:"225mm sandcrete blockwork — external walls",unit:"m²"},
+  {ref:"D2",desc:"225mm sandcrete blockwork — internal partitions",unit:"m²"},
+  {ref:"D3",desc:"150mm sandcrete blockwork — internal partitions",unit:"m²"},
+  {ref:"D4",desc:"Parapet / boundary wall blockwork",unit:"m²"},
+  {ref:"D5",desc:"Block supply & delivery to site",unit:"Blks"},
+  {ref:"D6",desc:"Sand, cement & mortar materials",unit:"Lot"},
+ ]},
+ ROOF:{code:"E",label:"Roofing",items:[
+  {ref:"E1",desc:"Timber wall plates & ridge board",unit:"m"},
+  {ref:"E2",desc:"150×50mm sawn hardwood rafters",unit:"m"},
+  {ref:"E3",desc:"75×50mm purlins",unit:"m"},
+  {ref:"E4",desc:"100×50mm struts & 50×50mm noggins",unit:"m"},
+  {ref:"E5",desc:"Tie beams",unit:"m"},
+  {ref:"E6",desc:"0.55mm longspan aluminium roofing sheets",unit:"m²"},
+  {ref:"E7",desc:"Ridge, hip & valley aluminium flashing",unit:"m"},
+  {ref:"E8",desc:"Aluminium gutters & downpipes",unit:"m"},
+  {ref:"E9",desc:"Bitumen felt waterproofing to parapet upstands",unit:"m²"},
+  {ref:"E10",desc:"Roofing sundries & accessories",unit:"Lot"},
+ ]},
+ INSITU:{code:"F",label:"In-Situ Finishes",items:[
+  {ref:"F1",desc:"50mm cement/sand screed 1:4 — ground floor",unit:"m²"},
+  {ref:"F2",desc:"50mm cement/sand screed 1:4 — upper floors",unit:"m²"},
+  {ref:"F3",desc:"12mm cement/sand render 1:3 — internal walls",unit:"m²"},
+  {ref:"F4",desc:"12mm cement/sand render 1:3 — external walls",unit:"m²"},
+  {ref:"F5",desc:"Floated backing coat — wet areas (baths, kitchen)",unit:"m²"},
+  {ref:"F6",desc:"POP skim coat to internal wall surfaces",unit:"m²"},
+  {ref:"F7",desc:"POP suspended ceiling with timber framework & cornices",unit:"m²"},
+ ]},
+ TILE:{code:"G",label:"Tiling & Floor Finishes",items:[
+  {ref:"G1",desc:"600×600mm vitrified floor tiles — ground floor",unit:"m²"},
+  {ref:"G2",desc:"600×600mm vitrified floor tiles — first floor",unit:"m²"},
+  {ref:"G3",desc:"300×600mm ceramic wall tiles — bathrooms & kitchen",unit:"m²"},
+  {ref:"G4",desc:"Staircase tiles — treads, risers & landings",unit:"m²"},
+  {ref:"G5",desc:"100mm tile skirting",unit:"m"},
+  {ref:"G6",desc:"Tile adhesive, grout & sundry materials",unit:"Lot"},
+  {ref:"G7",desc:"Tile labour (laying & finishing)",unit:"m²"},
+ ]},
+ PAINT:{code:"H",label:"Painting & Decorating",items:[
+  {ref:"H1",desc:"Emulsion paint — internal walls (all floors)",unit:"m²"},
+  {ref:"H2",desc:"Emulsion paint — external walls",unit:"m²"},
+  {ref:"H3",desc:"Emulsion paint — ceilings & slab soffits",unit:"m²"},
+  {ref:"H4",desc:"Gloss / enamel paint — doors, windows & ironwork",unit:"m²"},
+  {ref:"H5",desc:"Paint materials supply (primer, sealer, emulsion)",unit:"Lot"},
+ ]},
+ JOINERY:{code:"J",label:"Doors, Windows & Ironmongery",items:[
+  {ref:"J1",desc:"External security / steel door — supply & fix",unit:"No."},
+  {ref:"J2",desc:"Hardwood flush internal door — supply & fix",unit:"No."},
+  {ref:"J3",desc:"Aluminium casement window — supply & fix",unit:"No."},
+  {ref:"J4",desc:"Aluminium sliding / bi-fold door — supply & fix",unit:"No."},
+  {ref:"J5",desc:"GMP windows & doors — supply & fix",unit:"No."},
+  {ref:"J6",desc:"Door handles, mortice locks & ironmongery",unit:"Set"},
+  {ref:"J7",desc:"Window stays, fasteners & ironmongery",unit:"Set"},
+ ]},
+ ELEC:{code:"K",label:"Electrical",items:[
+  {ref:"K1",desc:"Main distribution board (TPN) — supply & fix",unit:"No."},
+  {ref:"K2",desc:"Sub-distribution board & MCBs",unit:"No."},
+  {ref:"K3",desc:"Manual / auto changeover switch",unit:"No."},
+  {ref:"K4",desc:"Conduit installation (PVC rigid in slab)",unit:"m"},
+  {ref:"K5",desc:"2.5mm² T&E cable — supply",unit:"rolls"},
+  {ref:"K6",desc:"1.5mm² T&E cable — supply",unit:"rolls"},
+  {ref:"K7",desc:"4mm² & 6mm² T&E cable — supply",unit:"rolls"},
+  {ref:"K8",desc:"Lighting circuit points — fitting & wiring",unit:"No."},
+  {ref:"K9",desc:"Socket outlet points — fitting & wiring",unit:"No."},
+  {ref:"K10",desc:"AC circuit points — fitting & wiring",unit:"No."},
+  {ref:"K11",desc:"LED recessed luminaires & ceiling fans — supply & fix",unit:"No."},
+  {ref:"K12",desc:"External security floodlights",unit:"No."},
+  {ref:"K13",desc:"Earthing system — copper rod, conductor & bar",unit:"Lot"},
+  {ref:"K14",desc:"Electrical sundries & accessories",unit:"Lot"},
+ ]},
+ PLUMB:{code:"L",label:"Plumbing, Drainage & M&E",items:[
+  {ref:"L1",desc:"PPR hot/cold supply pipe 15–25mm — supply & fix",unit:"m"},
+  {ref:"L2",desc:"PPR main distribution pipe 32–40mm",unit:"m"},
+  {ref:"L3",desc:"50mm uPVC waste pipe — supply & fix",unit:"m"},
+  {ref:"L4",desc:"110mm uPVC soil/vent pipe — supply & fix",unit:"m"},
+  {ref:"L5",desc:"Close-coupled WC suite — supply & fix",unit:"No."},
+  {ref:"L6",desc:"Wash hand basin on pedestal — supply & fix",unit:"No."},
+  {ref:"L7",desc:"Stainless steel kitchen sink — supply & fix",unit:"No."},
+  {ref:"L8",desc:"Shower mixer valve & screen — supply & fix",unit:"No."},
+  {ref:"L9",desc:"Electric storage water heater — supply & fix",unit:"No."},
+  {ref:"L10",desc:"Overhead polyethylene water tank on stand",unit:"No."},
+  {ref:"L11",desc:"Borehole drilling, casing & pump installation",unit:"No."},
+  {ref:"L12",desc:"Rainwater downpipe & half-round gutter",unit:"m"},
+  {ref:"L13",desc:"Underground uPVC drainage — bedding & backfill",unit:"m"},
+  {ref:"L14",desc:"Septic tank (3000L) & soakaway pit",unit:"No."},
+  {ref:"L15",desc:"AC units (split, inverter) — supply & installation",unit:"No."},
+  {ref:"L16",desc:"All PPR fittings, gate valves & plumbing sundries",unit:"Lot"},
+ ]},
+ EXTERN:{code:"M",label:"External Works",items:[
+  {ref:"M1",desc:"Interlocking block paving — driveway & car park",unit:"m²"},
+  {ref:"M2",desc:"Plain concrete apron, porch & steps",unit:"m²"},
+  {ref:"M3",desc:"Sandcrete boundary fence wall — plastered",unit:"m"},
+  {ref:"M4",desc:"Vehicular security gate — supply & installation",unit:"No."},
+  {ref:"M5",desc:"Gatehouse — complete construction",unit:"Lot"},
+  {ref:"M6",desc:"Landscaping, turfing & tree planting",unit:"Sum"},
+  {ref:"M7",desc:"Brick inspection chambers & yard gullies",unit:"No."},
+  {ref:"M8",desc:"External drainage connections & backfill",unit:"Sum"},
+ ]},
+};
+const ELEM_KEYS=Object.keys(ELEMENTS);
+const COST_TYPES=["Materials","Labour","Other"];
+const DESIGS=["Labour","Mason","Carpenter","Aboki","Plumber","Electrician","Welder","Painter","Tiler","Scaffolder","Foreman","Other"];
+
+// ── Storage abstraction (works in Claude.ai artifact AND as saved HTML) ────
+const store={
+  async get(k){
+    try{if(window.storage){const r=await window.storage.get(k);return r;}
+        const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}
+  },
+  async set(k,v){
+    try{if(window.storage){return await window.storage.set(k,v);}
+        localStorage.setItem(k,v);return{value:v};}catch{return null;}
+  },
+  async del(k){
+    try{if(window.storage){return await window.storage.delete(k);}
+        localStorage.removeItem(k);return{deleted:true};}catch{return null;}
+  }
+};
+
+// ── Apps Script (multi-site, writes to COST LOG + WEEKLY TRACKER) ──────────
+const GS_SCRIPT=`// Sunville Developers — Cost & Wage Bill Tracker
+// This script handles BOTH wage bill entries and QS cost entries
+// It writes to three sheets:
+//   1. COST LOG       — every individual line item
+//   2. WAGE BILLS     — complete wage bill summaries
+//   3. WEEKLY TRACKER — aggregated by site+week, mirrors your tracker format
+//
+// Deploy as: Extensions → Apps Script → Deploy → New Deployment
+// Type: Web app | Execute: Me | Access: Anyone
+
+function doPost(e) {
+  try {
+    var d = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ts = new Date().toISOString();
+    if (d.entryType === "wage_bill") {
+      writeWageBill(ss, d, ts);
+    } else {
+      writeCostEntry(ss, d, ts);
+    }
+    updateWeeklyTracker(ss, d, ts);
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message}))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function ensureSheet(ss, name, headers, widths) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.appendRow(headers);
+    sh.getRange(1,1,1,headers.length).setBackground("#1F6E43").setFontColor("white").setFontWeight("bold");
+    sh.setFrozenRows(1);
+    if (widths) sh.setColumnWidths(1, widths.length, widths);
+  }
+  return sh;
+}
+
+function writeWageBill(ss, d, ts) {
+  var wbHeaders = ["Timestamp","Site","Bill Date","Week Ref","Supervisor",
+    "S/N","Element","BOQ Item Ref","BOQ Item Description",
+    "Cost Type","Work Description","Designation","Workers","Rate (N)","Amount (N)",
+    "Transfer?","Transfer From","Bill Notes","Submitted At","Status"];
+  var wbWidths = [140,120,90,90,130,40,130,80,260,90,220,100,70,90,110,70,120,180,140,90];
+  var wb = ensureSheet(ss,"WAGE BILLS",wbHeaders,wbWidths);
+  d.items.forEach(function(item,i){
+    wb.appendRow([
+      ts, d.site, d.date, d.weekRef, d.supervisor,
+      i+1,
+      item.elemLabel||"", item.itemRef||"", item.itemDesc||"",
+      item.costType||"Labour", item.workDesc||"",
+      item.desig||"Labour", Number(item.workers)||"",
+      Number(item.rate)||"", Number(item.amount)||0,
+      item.isTransfer?"YES":"", item.transferFrom||"",
+      i===0?(d.notes||""):"", d.at||ts, "PENDING"
+    ]);
+  });
+}
+
+function writeCostEntry(ss, d, ts) {
+  var ceHeaders = ["Timestamp","Site","Date","Week Ref",
+    "Element Code","Element","BOQ Item Ref","BOQ Item Description",
+    "Cost Type","Work Description","Qty","Unit","Rate (N)","Amount (N)",
+    "Recorded By","Notes","Submitted At","Status"];
+  var ceWidths = [140,120,90,90,80,130,80,280,90,240,60,60,100,110,130,200,140,90];
+  var cl = ensureSheet(ss,"COST LOG",ceHeaders,ceWidths);
+  cl.appendRow([
+    ts, d.site, d.date, d.weekRef,
+    d.elemCode||"", d.elemLabel||"", d.itemRef||"", d.itemDesc||"",
+    d.costType||"", d.workDesc||"",
+    Number(d.qty)||"", d.unit||"", Number(d.rate)||"", Number(d.amount)||0,
+    d.recordedBy||"", d.notes||"", d.at||ts, "PENDING"
+  ]);
+}
+
+function updateWeeklyTracker(ss, d, ts) {
+  // WEEKLY TRACKER mirrors the existing tracker format:
+  // Site | Week Ref | Week Start | Materials | Labour | Other | Gross | Entries | Last Updated
+  var wtHeaders = ["Site","Week Ref","Week Start","Materials (N)","Labour (N)","Other (N)","Gross Total (N)","Entry Count","Last Updated"];
+  var wt = ensureSheet(ss,"WEEKLY TRACKER",wtHeaders,[140,90,90,120,120,120,130,80,140]);
+
+  var site = d.site;
+  var weekRef = d.weekRef;
+  var mat = 0, lab = 0, other = 0;
+
+  if (d.entryType === "wage_bill") {
+    mat   = Number(d.totalMaterials)||0;
+    lab   = Number(d.totalLabour)||0;
+    other = Number(d.totalOther)||0;
+  } else {
+    var amt = Number(d.amount)||0;
+    if (d.costType==="Materials") mat=amt;
+    else if (d.costType==="Labour") lab=amt;
+    else other=amt;
+  }
+
+  // Find existing row for this site+week
+  var data = wt.getDataRange().getValues();
+  var rowIdx = -1;
+  for (var i=1;i<data.length;i++){
+    if (data[i][0]===site && data[i][1]===weekRef){ rowIdx=i+1; break; }
+  }
+  if (rowIdx===-1) {
+    // New row
+    var weekStart = d.date||"";
+    wt.appendRow([site,weekRef,weekStart,mat,lab,other,mat+lab+other,1,ts]);
+  } else {
+    // Update existing row
+    var r = wt.getRange(rowIdx,1,1,9).getValues()[0];
+    var newMat   = (Number(r[3])||0)+mat;
+    var newLab   = (Number(r[4])||0)+lab;
+    var newOther = (Number(r[5])||0)+other;
+    var newCnt   = (Number(r[7])||0)+1;
+    wt.getRange(rowIdx,4,1,6).setValues([[newMat,newLab,newOther,newMat+newLab+newOther,newCnt,ts]]);
+  }
+}
+
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({status:"Sunville Cost Tracker API active — v2.0"}))
+                       .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+// ── Shared styles ──────────────────────────────────────────────────────────
+const IS={
+  input:{width:"100%",padding:"9px 11px",border:`1px solid ${C.bdr}`,borderRadius:6,
+         fontSize:13,background:C.card,color:C.tx,outline:"none"},
+  label:{fontSize:11,color:C.tx2,fontWeight:600,textTransform:"uppercase",
+         letterSpacing:"0.07em",display:"block",marginBottom:4},
+  card:{background:C.card,borderRadius:10,border:`1px solid ${C.bdr}`,
+        padding:"12px 14px",marginBottom:10},
+  btn:(bg,fg="#fff")=>({background:bg,color:fg,padding:"10px 20px",borderRadius:6,
+      fontSize:13,fontWeight:600,border:"none",cursor:"pointer",width:"100%"}),
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt=n=>(!n&&n!==0)?"":(Number(n)||0).toLocaleString("en-NG",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtN=n=>(Number(n)||0).toLocaleString("en-NG",{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtShort=n=>{const v=Number(n)||0;return v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":v.toFixed(0)};
+const today=()=>new Date().toISOString().split("T")[0];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+const pct=(a,b)=>b>0?Math.min((a/b)*100,999):0;
+const pctColor=p=>p>=100?C.red:p>=80?C.wrn:C.grn2;
+const pctBg=p=>p>=100?C.redl:p>=80?C.wrnl:C.grnl;
+function getWeekRef(dateStr){
+  if(!dateStr)return"";
+  const d=new Date(dateStr+"T00:00:00");
+  const day=d.getDay();
+  const mon=new Date(d);mon.setDate(d.getDate()-(day===0?6:day-1));
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const f=dd=>`${dd.getDate().toString().padStart(2,"0")}/${(dd.getMonth()+1).toString().padStart(2,"0")}`;
+  return`W${f(mon)}–${f(sun)}`;
+}
+const mkWbItem=()=>({
+  id:uid(),elemKey:"",itemRef:"",itemDesc:"",costType:"Labour",
+  workDesc:"",desig:"Labour",workers:"",rate:"",amount:"",
+  isTransfer:false,transferFrom:""
+});
+
+// ── Main App ───────────────────────────────────────────────────────────────
+function App(){
+  // Global
+  const [tab,setTab]=useState("record");
+  const [site,setSite]=useState("");
+  const [mode,setMode]=useState("wage"); // "wage" | "cost"
+  const [entries,setEntries]=useState([]);
+  const [budgets,setBudgets]=useState({}); // {site:{elemKey:{total:budget}}}
+  const [url,setUrl]=useState("");
+  const [toast,setToast]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [copied,setCopied]=useState(false);
+  const [logFilter,setLogFilter]=useState({site:"",elem:"",type:"",week:""});
+  const [expandedElem,setExpandedElem]=useState(null);
+  const [expandedEntry,setExpandedEntry]=useState(null);
+  // Wage Bill form
+  const [wDate,setWDate]=useState(today());
+  const [wSuper,setWSuper]=useState("");
+  const [wNotes,setWNotes]=useState("");
+  const [wItems,setWItems]=useState([mkWbItem()]);
+  // Cost Entry form
+  const [cDate,setCDate]=useState(today());
+  const [cRecBy,setCRecBy]=useState("");
+  const [cNotes,setCNotes]=useState("");
+  const [elemKey,setElemKey]=useState("");
+  const [itemRef,setItemRef]=useState("");
+  const [costType,setCostType]=useState("Materials");
+  const [workDesc,setWorkDesc]=useState("");
+  const [qty,setQty]=useState("");
+  const [unit,setUnit]=useState("");
+  const [rate,setRate]=useState("");
+  const [amount,setAmount]=useState("");
+  // Budget config
+  const [budgetSite,setBudgetSite]=useState("");
+  const [budgetElem,setBudgetElem]=useState("");
+  const [budgetAmt,setBudgetAmt]=useState("");
+
+  useEffect(()=>{
+    (async()=>{
+      try{const r=await store.get("sct_entries");if(r)setEntries(JSON.parse(r.value));}catch(_){}
+      try{const c=await store.get("sct_config");if(c){const d=JSON.parse(c.value);
+        setUrl(d.url||"");setBudgets(d.budgets||{});}}catch(_){}
+      setLoading(false);
+    })();
+  },[]);
+
+  const showToast=(msg,err=false)=>{setToast({msg,err});setTimeout(()=>setToast(null),3500)};
+
+  // ── Computed ─────────────────────────────────────────────────────────────
+  const spendMap=useMemo(()=>{
+    const map={};
+    entries.forEach(en=>{
+      const s=en.site;if(!s)return;
+      if(!map[s])map[s]={};
+      const items=en.entryType==="wage_bill"?en.items:[en];
+      items.forEach(item=>{
+        const k=item.elemKey;if(!k)return;
+        if(!map[s][k])map[s][k]={total:0,items:{}};
+        const a=Number(item.amount)||0;
+        map[s][k].total+=a;
+        const r=item.itemRef||"?";
+        map[s][k].items[r]=(map[s][k].items[r]||0)+a;
+      });
+    });
+    return map;
+  },[entries]);
+
+  const weekRows=useMemo(()=>{
+    const map={};
+    entries.filter(en=>!site||en.site===site).forEach(en=>{
+      const w=en.weekRef;if(!w)return;
+      if(!map[w])map[w]={week:w,mat:0,lab:0,other:0,gross:0};
+      if(en.entryType==="wage_bill"){
+        map[w].lab+=Number(en.totalLabour)||0;
+        map[w].mat+=Number(en.totalMaterials)||0;
+        map[w].other+=Number(en.totalOther)||0;
+      }else{
+        const a=Number(en.amount)||0;
+        if(en.costType==="Labour")map[w].lab+=a;
+        else if(en.costType==="Materials")map[w].mat+=a;
+        else map[w].other+=a;
+      }
+      map[w].gross=map[w].mat+map[w].lab+map[w].other;
+    });
+    return Object.values(map).sort((a,b)=>b.week.localeCompare(a.week));
+  },[entries,site]);
+
+  const siteTotalSpent=useMemo(()=>{
+    const sm=spendMap[site]||{};
+    return Object.values(sm).reduce((s,el)=>s+(el.total||0),0);
+  },[spendMap,site]);
+
+  const getSiteBudget=s=>{
+    const sb=budgets[s]||{};
+    return Object.values(sb).reduce((s,v)=>s+(Number(v)||0),0);
+  };
+
+  const wbTotal=wItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const wbTotalLab=wItems.filter(i=>i.costType==="Labour").reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const wbTotalMat=wItems.filter(i=>i.costType==="Materials").reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const updWbItem=(id,field,val)=>{
+    setWItems(prev=>prev.map(item=>{
+      if(item.id!==id)return item;
+      const u={...item,[field]:val};
+      if(field==="elemKey"){u.itemRef="";u.itemDesc="";}
+      if(field==="itemRef")u.itemDesc=ELEMENTS[item.elemKey]?.items.find(i=>i.ref===val)?.desc||"";
+      if(field==="workers"||field==="rate"){
+        const w=parseFloat(field==="workers"?val:item.workers)||0;
+        const r=parseFloat(field==="rate"?val:item.rate)||0;
+        u.amount=w&&r?String(Math.round(w*r)):u.amount;
+      }
+      return u;
+    }));
+  };
+  const handleElemChange=v=>{setElemKey(v);setItemRef("");setUnit("");setRate("");setAmount("");};
+  const handleItemChange=v=>{
+    setItemRef(v);
+    const it=ELEMENTS[elemKey]?.items.find(i=>i.ref===v);
+    if(it)setUnit(it.unit||"");
+    setAmount("");setQty("");
+  };
+  const handleQtyRate=(field,val)=>{
+    if(field==="qty")setQty(val);if(field==="rate")setRate(val);
+    const q=parseFloat(field==="qty"?val:qty)||0;
+    const r=parseFloat(field==="rate"?val:rate)||0;
+    if(q&&r)setAmount(String(Math.round(q*r)));else if(!q&&!r)setAmount("");
+  };
+
+  // ── Submit Wage Bill ──────────────────────────────────────────────────────
+  const submitWageBill=async()=>{
+    if(!site)return showToast("Select a site first",true);
+    if(!wDate||!wSuper.trim())return showToast("Fill in date and supervisor name",true);
+    if(wItems.some(i=>!i.workDesc.trim()))return showToast("All work descriptions are required",true);
+    if(wItems.some(i=>!i.amount||isNaN(Number(i.amount))))return showToast("Enter valid amounts for all items",true);
+    setBusy(true);
+    const tLab=wItems.filter(i=>i.costType==="Labour").reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const tMat=wItems.filter(i=>i.costType==="Materials").reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const tOther=wItems.filter(i=>i.costType==="Other").reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const entry={
+      id:uid(),entryType:"wage_bill",site,date:wDate,weekRef:getWeekRef(wDate),
+      supervisor:wSuper,
+      items:wItems.map(({id,...r})=>({...r,amount:Number(r.amount)||0})),
+      total:tLab+tMat+tOther,totalLabour:tLab,totalMaterials:tMat,totalOther:tOther,
+      notes:wNotes,at:new Date().toISOString(),status:"local"
+    };
+    if(url){try{await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(entry)});entry.status="sent";}catch(_){}}
+    const next=[entry,...entries];setEntries(next);
+    try{await store.set("sct_entries",JSON.stringify(next));}catch(_){}
+    setBusy(false);
+    showToast(entry.status==="sent"?"Wage bill submitted & synced ✓":"Wage bill saved — configure Sheets URL to auto-sync");
+    setWItems([mkWbItem()]);setWNotes("");
+  };
+
+  // ── Submit Cost Entry ─────────────────────────────────────────────────────
+  const submitCostEntry=async()=>{
+    if(!site)return showToast("Select a site first",true);
+    if(!elemKey||!itemRef)return showToast("Select a work element and item",true);
+    if(!workDesc.trim())return showToast("Describe the actual work carried out",true);
+    if(!amount||isNaN(Number(amount)))return showToast("Enter a valid amount",true);
+    if(!cRecBy.trim())return showToast("Enter who is recording this entry",true);
+    setBusy(true);
+    const el=ELEMENTS[elemKey];
+    const it=el.items.find(i=>i.ref===itemRef);
+    const entry={
+      id:uid(),entryType:"cost_entry",site,date:cDate,weekRef:getWeekRef(cDate),
+      elemKey,elemCode:el.code,elemLabel:el.label,
+      itemRef,itemDesc:it?.desc||"",
+      costType,workDesc,qty:qty||"",unit,rate:rate||"",
+      amount:Number(amount)||0,recordedBy:cRecBy,notes:cNotes,
+      at:new Date().toISOString(),status:"local"
+    };
+    if(url){try{await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(entry)});entry.status="sent";}catch(_){}}
+    const next=[entry,...entries];setEntries(next);
+    try{await store.set("sct_entries",JSON.stringify(next));}catch(_){}
+    setBusy(false);
+    showToast(entry.status==="sent"?"Entry recorded & synced ✓":"Entry saved — configure Sheets URL to auto-sync");
+    setItemRef("");setWorkDesc("");setQty("");setUnit("");setRate("");setAmount("");setCNotes("");
+  };
+
+  const retrySync=async()=>{
+    if(!url)return showToast("Add Google Sheets URL in Settings first",true);
+    let sent=0;
+    const updated=await Promise.all(entries.map(async en=>{
+      if(en.status==="sent")return en;
+      try{await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(en)});sent++;return{...en,status:"sent"};}
+      catch{return en;}
+    }));
+    setEntries(updated);
+    try{await store.set("sct_entries",JSON.stringify(updated));}catch(_){}
+    showToast(`${sent} entr${sent===1?"y":"ies"} synced`);
+  };
+
+  const saveConfig=async()=>{
+    try{await store.set("sct_config",JSON.stringify({url,budgets}));showToast("Settings saved");}
+    catch(_){showToast("Save failed",true);}
+  };
+
+  const saveBudget=async()=>{
+    if(!budgetSite||!budgetElem||!budgetAmt)return showToast("Fill all budget fields",true);
+    const nb={...budgets,[budgetSite]:{...(budgets[budgetSite]||{}),[budgetElem]:Number(budgetAmt)||0}};
+    setBudgets(nb);
+    try{await store.set("sct_config",JSON.stringify({url,budgets:nb}));showToast("Budget saved");}
+    catch(_){showToast("Save failed",true);}
+    setBudgetAmt("");
+  };
+
+  const clearAll=async()=>{
+    if(!confirm("Clear ALL entries? This cannot be undone."))return;
+    setEntries([]);try{await store.del("sct_entries");}catch(_){}
+    showToast("All entries cleared");
+  };
+
+  const selectedItem=useMemo(()=>elemKey&&itemRef?ELEMENTS[elemKey]?.items.find(i=>i.ref===itemRef)||null:null,[elemKey,itemRef]);
+
+  if(loading)return e("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",height:300,color:C.tx2,fontSize:13}},"Loading…");
+
+  const TABS=[["record","📋","Record"],["analytics","📊","Analytics"],["log","🗂","Log"],["settings","⚙️","Settings"]];
+
+  return e("div",{style:{background:C.bg,minHeight:500,maxWidth:600,margin:"0 auto"}},
+
+    // ─ Toast ─────────────────────────────────────────────────────────────────
+    toast&&e("div",{style:{background:toast.err?C.redl:C.nav,color:toast.err?C.red:"#fff",
+      padding:"9px 16px",fontSize:12,fontWeight:500,textAlign:"center",
+      borderBottom:`1px solid ${toast.err?C.red:C.nav2}`}},toast.msg),
+
+    // ─ Header ────────────────────────────────────────────────────────────────
+    e("div",{style:{background:`linear-gradient(135deg,${C.nav} 0%,${C.nav2} 100%)`,padding:"12px 16px 10px"}},
+      e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.45)",letterSpacing:"0.15em",textTransform:"uppercase",marginBottom:4}},
+        "Sunville Developers — Cost & Wage Bill Tracker v2.0"),
+      e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+        e("select",{value:site,onChange:ev=>setSite(ev.target.value),
+          style:{flex:1,padding:"7px 10px",borderRadius:6,border:"none",
+            background:"rgba(255,255,255,0.12)",color:"#fff",fontSize:13,fontWeight:600,
+            outline:"none",cursor:"pointer",
+            backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+            backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",paddingRight:28,appearance:"none"}},
+          e("option",{value:"",style:{color:C.tx}},"— Select site —"),
+          SITES.map(s=>e("option",{key:s,value:s,style:{color:C.tx}},s))
+        ),
+        site&&e("div",{style:{textAlign:"right",flexShrink:0}},
+          e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:"0.1em"}},"SITE SPEND"),
+          e("div",{style:{color:C.amb,fontSize:14,fontWeight:700}},"₦"+fmtShort(siteTotalSpent))
+        )
+      )
+    ),
+
+    // ─ Tab bar ───────────────────────────────────────────────────────────────
+    e("div",{style:{display:"flex",background:C.card,borderBottom:`1px solid ${C.bdr}`}},
+      TABS.map(([t,ic,lb])=>e("button",{key:t,onClick:()=>setTab(t),style:{
+        flex:1,padding:"10px 0 8px",fontSize:11,fontWeight:tab===t?700:400,
+        color:tab===t?C.nav:C.tx2,background:"none",border:"none",
+        borderBottom:`2px solid ${tab===t?C.nav:"transparent"}`,cursor:"pointer",
+        display:"flex",flexDirection:"column",alignItems:"center",gap:2
+      }},e("span",{style:{fontSize:16}},ic),lb))
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ─ RECORD TAB ──────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    tab==="record"&&e("div",{style:{padding:"12px 16px 32px"}},
+
+      // Mode toggle
+      e("div",{style:{display:"flex",gap:0,marginBottom:12,border:`1px solid ${C.bdr}`,borderRadius:8,overflow:"hidden"}},
+        [["wage","📋 Wage Bill","Supervisor entry — no budget shown"],
+         ["cost","📊 Cost Entry","QS cost tracking — with BOQ reference"]].map(([m,label,sub])=>
+          e("button",{key:m,onClick:()=>setMode(m),style:{
+            flex:1,padding:"9px 8px",border:"none",cursor:"pointer",textAlign:"center",
+            background:mode===m?C.nav:C.card,color:mode===m?"#fff":C.tx2,
+            transition:"all 0.15s"
+          }},
+            e("div",{style:{fontSize:12,fontWeight:700}},label),
+            e("div",{style:{fontSize:9,opacity:0.7,marginTop:1}},sub)
+          )
+        )
+      ),
+
+      // ─ WAGE BILL mode ─────────────────────────────────────────────────────
+      mode==="wage"&&e("div",null,
+
+        e("div",{style:IS.card},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+            e("div",null,
+              e("label",{style:IS.label},"Date"),
+              e("input",{type:"date",value:wDate,onChange:ev=>setWDate(ev.target.value),style:IS.input})
+            ),
+            e("div",null,
+              e("label",{style:IS.label},"Supervisor / Recorded By"),
+              e("input",{type:"text",value:wSuper,placeholder:"Name…",
+                onChange:ev=>setWSuper(ev.target.value),style:IS.input})
+            )
+          ),
+          wDate&&e("div",{style:{marginTop:6,fontSize:11,color:C.tx3}},
+            "Site: ",e("strong",null,site||"— not selected —")," · Week: ",e("strong",null,getWeekRef(wDate))
+          )
+        ),
+
+        // Wage bill line items
+        e("div",{style:{marginBottom:4}},
+          e("label",{style:{...IS.label,marginBottom:6}},"Work Items"),
+        ),
+
+        ...wItems.map((item,idx)=>
+          e("div",{key:item.id,style:{...IS.card,padding:"10px 12px",position:"relative"}},
+            e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
+              e("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                e("div",{style:{background:C.nav,color:"#fff",borderRadius:4,width:22,height:22,
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0}},
+                  idx+1),
+                e("div",{style:{fontSize:11,fontWeight:600,color:C.tx}},
+                  item.itemDesc?item.itemDesc.substring(0,45)+(item.itemDesc.length>45?"…":""):"New work item")
+              ),
+              wItems.length>1&&e("button",{onClick:()=>setWItems(p=>p.filter(i=>i.id!==item.id)),
+                style:{background:C.redl,color:C.red,border:"none",borderRadius:4,
+                  padding:"2px 8px",fontSize:10,cursor:"pointer"}},"✕ Remove")
+            ),
+
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+              e("div",null,
+                e("label",{style:IS.label},"Work Section"),
+                e("select",{value:item.elemKey,
+                  onChange:ev=>updWbItem(item.id,"elemKey",ev.target.value),
+                  style:{...IS.input,appearance:"none"}},
+                  e("option",{value:""},"— Section —"),
+                  ELEM_KEYS.map(k=>e("option",{key:k,value:k},`${ELEMENTS[k].code} — ${ELEMENTS[k].label}`))
+                )
+              ),
+              e("div",null,
+                e("label",{style:IS.label},"Work Item"),
+                e("select",{value:item.itemRef,disabled:!item.elemKey,
+                  onChange:ev=>updWbItem(item.id,"itemRef",ev.target.value),
+                  style:{...IS.input,appearance:"none",opacity:item.elemKey?1:0.5}},
+                  e("option",{value:""},"— Item —"),
+                  (ELEMENTS[item.elemKey]?.items||[]).map(it=>
+                    e("option",{key:it.ref,value:it.ref},`${it.ref} | ${it.desc.substring(0,40)}`)
+                  )
+                )
+              )
+            ),
+
+            // Cost type buttons
+            e("div",{style:{display:"flex",gap:6,marginBottom:8}},
+              COST_TYPES.map(t=>e("button",{key:t,onClick:()=>updWbItem(item.id,"costType",t),style:{
+                flex:1,padding:"6px 4px",borderRadius:5,fontSize:11,fontWeight:500,cursor:"pointer",
+                border:`1.5px solid ${item.costType===t?C.nav:C.bdr}`,
+                background:item.costType===t?C.nav:C.card,
+                color:item.costType===t?"#fff":C.tx2}}
+              ,t))
+            ),
+
+            e("div",{style:{marginBottom:8}},
+              e("label",{style:IS.label},"Work Description"),
+              e("input",{type:"text",value:item.workDesc,placeholder:"e.g. Laying of 190 blocks",
+                onChange:ev=>updWbItem(item.id,"workDesc",ev.target.value),style:IS.input})
+            ),
+
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:8}},
+              e("div",null,
+                e("label",{style:IS.label},"Desig."),
+                e("select",{value:item.desig,onChange:ev=>updWbItem(item.id,"desig",ev.target.value),
+                  style:{...IS.input,fontSize:11,padding:"7px 6px",appearance:"none"}},
+                  DESIGS.map(d=>e("option",{key:d,value:d},d))
+                )
+              ),
+              e("div",null,
+                e("label",{style:IS.label},"Workers"),
+                e("input",{type:"number",value:item.workers,placeholder:"0",
+                  onChange:ev=>updWbItem(item.id,"workers",ev.target.value),
+                  style:{...IS.input,fontSize:12}})
+              ),
+              e("div",null,
+                e("label",{style:IS.label},"Rate (₦)"),
+                e("input",{type:"number",value:item.rate,placeholder:"0",
+                  onChange:ev=>updWbItem(item.id,"rate",ev.target.value),
+                  style:{...IS.input,fontSize:12}})
+              ),
+              e("div",null,
+                e("label",{style:{...IS.label,color:C.nav}},"Amount (₦)"),
+                e("input",{type:"number",value:item.amount,placeholder:"0",
+                  onChange:ev=>updWbItem(item.id,"amount",ev.target.value),
+                  style:{...IS.input,fontSize:12,background:C.ambl,fontWeight:700,color:C.nav}})
+              )
+            ),
+
+            // Inter-site transfer
+            e("button",{onClick:()=>updWbItem(item.id,"isTransfer",!item.isTransfer),style:{
+              width:"100%",padding:"6px 10px",borderRadius:6,fontSize:11,fontWeight:500,cursor:"pointer",
+              border:`1px solid ${item.isTransfer?C.nav:C.bdr}`,
+              background:item.isTransfer?C.navl:C.bg,color:item.isTransfer?C.nav:C.tx2
+            }},`⇄ ${item.isTransfer?"Inter-site transfer (tap to clear)":"Flag as inter-site transfer (materials received from another site)"}`),
+
+            item.isTransfer&&e("div",{style:{marginTop:6}},
+              e("label",{style:{...IS.label,color:C.nav}},"Materials transferred FROM site"),
+              e("select",{value:item.transferFrom,
+                onChange:ev=>updWbItem(item.id,"transferFrom",ev.target.value),
+                style:{...IS.input,border:`1px solid ${C.nav}`,appearance:"none"}},
+                e("option",{value:""},"— Select source site —"),
+                SITES.filter(s=>s!==site).map(s=>e("option",{key:s,value:s},s))
+              )
+            )
+          )
+        ),
+
+        e("button",{onClick:()=>setWItems(p=>[...p,mkWbItem()]),style:{
+          ...IS.btn(C.navl,C.nav),border:`1px dashed ${C.nav}`,marginBottom:10
+        }},"+ Add Work Item"),
+
+        e("div",{style:{marginBottom:8}},
+          e("label",{style:IS.label},"Notes (optional)"),
+          e("input",{type:"text",value:wNotes,placeholder:"Any remarks about today's work…",
+            onChange:ev=>setWNotes(ev.target.value),style:IS.input})
+        ),
+
+        // Running total
+        e("div",{style:{background:`linear-gradient(135deg,${C.nav} 0%,${C.nav2} 100%)`,
+          borderRadius:10,padding:"12px 16px",marginBottom:12}},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}},
+            [["Labour","₦"+fmtShort(wbTotalLab)],["Materials","₦"+fmtShort(wbTotalMat)],["Other","₦"+fmtShort(wItems.filter(i=>i.costType==="Other").reduce((s,i)=>s+(parseFloat(i.amount)||0),0))]].map(([k,v])=>
+              e("div",{key:k},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:2}},k),
+                e("div",{style:{fontSize:13,fontWeight:700,color:"rgba(255,255,255,0.85)"}},v)
+              )
+            )
+          ),
+          e("div",{style:{display:"flex",alignItems:"baseline",justifyContent:"space-between",
+            borderTop:"1px solid rgba(255,255,255,0.12)",paddingTop:8}},
+            e("div",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.1em"}},"Daily Total"),
+            e("div",{style:{fontSize:22,fontWeight:700,color:"#fff"}},"₦"+fmtN(wbTotal))
+          )
+        ),
+
+        e("button",{onClick:submitWageBill,disabled:busy,style:{
+          ...IS.btn(C.nav),opacity:busy?0.6:1,boxShadow:`0 2px 8px rgba(31,110,67,0.35)`
+        }},busy?"Submitting…":"Submit Wage Bill")
+      ),
+
+      // ─ COST ENTRY mode ────────────────────────────────────────────────────
+      mode==="cost"&&e("div",null,
+
+        e("div",{style:IS.card},
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+            e("div",null,
+              e("label",{style:IS.label},"Date"),
+              e("input",{type:"date",value:cDate,onChange:ev=>setCDate(ev.target.value),style:IS.input})
+            ),
+            e("div",null,
+              e("label",{style:IS.label},"Recorded By"),
+              e("input",{type:"text",value:cRecBy,placeholder:"Name…",
+                onChange:ev=>setCRecBy(ev.target.value),style:IS.input})
+            )
+          ),
+          cDate&&e("div",{style:{marginTop:6,fontSize:11,color:C.tx3}},
+            "Site: ",e("strong",null,site||"— not selected —")," · Week: ",e("strong",null,getWeekRef(cDate))
+          )
+        ),
+
+        e("div",{style:IS.card},
+          e("label",{style:IS.label},"Work Element (BOQ Section)"),
+          e("select",{value:elemKey,onChange:ev=>handleElemChange(ev.target.value),
+            style:{...IS.input,appearance:"none",
+              backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748B' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+              backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",paddingRight:28}},
+            e("option",{value:""},"— Select element —"),
+            ELEM_KEYS.map(k=>e("option",{key:k,value:k},`${ELEMENTS[k].code} — ${ELEMENTS[k].label}`))
+          ),
+          elemKey&&e("div",{style:{marginTop:8,padding:"8px 10px",borderRadius:6,background:C.bg,border:`1px solid ${C.bdr}`}},
+            e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+              e("span",{style:{fontSize:10,color:C.tx2}},"Budget for "+ELEMENTS[elemKey].label),
+              e("span",{style:{fontSize:10,fontWeight:700,color:C.nav}},
+                budgets[site]?.[elemKey]?"₦"+fmt(budgets[site][elemKey]):"Not configured")
+            ),
+            e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
+              e("span",{style:{fontSize:10,color:C.tx2}},"Spent on this element"),
+              e("span",{style:{fontSize:10,fontWeight:700,color:pctColor(pct(spendMap[site]?.[elemKey]?.total||0,budgets[site]?.[elemKey]||0))}},
+                "₦"+fmt(spendMap[site]?.[elemKey]?.total||0)+
+                (budgets[site]?.[elemKey]?" ("+pct(spendMap[site]?.[elemKey]?.total||0,budgets[site]?.[elemKey]).toFixed(1)+"%)":""))
+            ),
+            budgets[site]?.[elemKey]&&e("div",{style:{height:4,background:C.bdr,borderRadius:2,overflow:"hidden"}},
+              e("div",{style:{height:"100%",borderRadius:2,
+                width:Math.min(pct(spendMap[site]?.[elemKey]?.total||0,budgets[site]?.[elemKey]),100)+"%",
+                background:pctColor(pct(spendMap[site]?.[elemKey]?.total||0,budgets[site]?.[elemKey])),
+                transition:"width 0.3s"}})
+            )
+          )
+        ),
+
+        elemKey&&e("div",{style:IS.card},
+          e("label",{style:IS.label},"BOQ Item"),
+          e("select",{value:itemRef,onChange:ev=>handleItemChange(ev.target.value),
+            style:{...IS.input,appearance:"none",
+              backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748B' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+              backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",paddingRight:28}},
+            e("option",{value:""},"— Select item —"),
+            (ELEMENTS[elemKey]?.items||[]).map(it=>
+              e("option",{key:it.ref,value:it.ref},`${it.ref}  |  ${it.desc.substring(0,55)}${it.desc.length>55?"…":""}`)
+            )
+          ),
+          selectedItem&&e("div",{style:{marginTop:8,padding:"10px 12px",borderRadius:6,
+            background:`linear-gradient(135deg,${C.nav} 0%,${C.nav2} 100%)`,color:"#fff"}},
+            e("div",{style:{fontSize:10,color:"rgba(255,255,255,0.45)",marginBottom:3}},
+              `BOQ ${ELEMENTS[elemKey].code}${selectedItem.ref}`),
+            e("div",{style:{fontSize:12,fontWeight:600,marginBottom:8,lineHeight:1.4}},selectedItem.desc),
+            e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+              [
+                ["Budget",budgets[site]?.[elemKey]?"₦"+fmt(budgets[site]?.[elemKey]):"Not set"],
+                ["Spent on item","₦"+fmt(spendMap[site]?.[elemKey]?.items?.[selectedItem.ref]||0)],
+                ["Remaining",budgets[site]?.[elemKey]?"₦"+fmt(Math.max(0,(budgets[site]?.[elemKey]||0)-(spendMap[site]?.[elemKey]?.items?.[selectedItem.ref]||0))):"—"],
+              ].map(([k,v])=>e("div",{key:k,style:{background:"rgba(255,255,255,0.08)",borderRadius:4,padding:"5px 7px"}},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",marginBottom:1}},k),
+                e("div",{style:{fontSize:11,fontWeight:700,color:C.amb}},v)
+              ))
+            )
+          )
+        ),
+
+        itemRef&&e("div",{style:IS.card},
+          e("label",{style:IS.label},"Cost Type"),
+          e("div",{style:{display:"flex",gap:8,marginBottom:10}},
+            COST_TYPES.map(t=>e("button",{key:t,onClick:()=>setCostType(t),style:{
+              flex:1,padding:"8px 4px",borderRadius:6,fontSize:12,fontWeight:500,cursor:"pointer",
+              border:`1.5px solid ${costType===t?C.nav:C.bdr}`,
+              background:costType===t?C.nav:C.card,color:costType===t?"#fff":C.tx2}}
+            ,t))
+          ),
+          e("label",{style:IS.label},"Actual Work Carried Out"),
+          e("textarea",{value:workDesc,placeholder:"Describe exactly what was done…",
+            onChange:ev=>setWorkDesc(ev.target.value),rows:2,
+            style:{...IS.input,resize:"vertical",lineHeight:1.5,marginBottom:10}}),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:10}},
+            e("div",null,e("label",{style:IS.label},"Qty"),
+              e("input",{type:"number",value:qty,placeholder:"0",
+                onChange:ev=>handleQtyRate("qty",ev.target.value),style:IS.input})),
+            e("div",null,e("label",{style:IS.label},"Unit"),
+              e("input",{type:"text",value:unit,placeholder:selectedItem?.unit||"",
+                onChange:ev=>setUnit(ev.target.value),style:IS.input})),
+            e("div",null,e("label",{style:IS.label},"Rate (₦)"),
+              e("input",{type:"number",value:rate,placeholder:"0",
+                onChange:ev=>handleQtyRate("rate",ev.target.value),style:IS.input})),
+            e("div",null,e("label",{style:{...IS.label,color:C.nav}},"Amount (₦)"),
+              e("input",{type:"number",value:amount,placeholder:"0",
+                onChange:ev=>setAmount(ev.target.value),
+                style:{...IS.input,background:C.ambl,fontWeight:700,color:C.nav}}))
+          ),
+          e("label",{style:IS.label},"Notes"),
+          e("input",{type:"text",value:cNotes,placeholder:"Any remarks…",
+            onChange:ev=>setCNotes(ev.target.value),style:IS.input})
+        ),
+
+        itemRef&&e("button",{onClick:submitCostEntry,disabled:busy,style:{
+          ...IS.btn(C.nav),opacity:busy?0.6:1,marginTop:4,
+          boxShadow:`0 2px 8px rgba(31,110,67,0.3)`
+        }},busy?"Saving…":"Save Cost Entry"),
+
+        !itemRef&&e("div",{style:{textAlign:"center",padding:"24px 16px",color:C.tx3,fontSize:12}},
+          e("div",{style:{fontSize:28,marginBottom:8}},"📊"),
+          !site?"Select a site from the header above to begin."
+               :"Select a work element and item above to record a cost entry."
+        )
+      )
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ─ ANALYTICS TAB ───────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    tab==="analytics"&&e("div",{style:{padding:"12px 16px 32px"}},
+
+      !site&&e("div",{style:{textAlign:"center",padding:"32px 0",color:C.tx3,fontSize:12}},
+        e("div",{style:{fontSize:28,marginBottom:8}},"📊"),
+        "Select a site from the header above to view analytics."),
+
+      site&&e("div",null,
+
+        // Site summary card
+        e("div",{style:{background:`linear-gradient(135deg,${C.nav} 0%,${C.nav2} 100%)`,
+          borderRadius:10,padding:"14px 16px",marginBottom:12}},
+          e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.45)",letterSpacing:"0.12em",
+            textTransform:"uppercase",marginBottom:6}},site+" — Spend Summary"),
+          e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}},
+            [["Total Spent",siteTotalSpent],["Budget",getSiteBudget(site)],["Balance",Math.max(0,getSiteBudget(site)-siteTotalSpent)]].map(([k,v])=>
+              e("div",{key:k},
+                e("div",{style:{fontSize:9,color:"rgba(255,255,255,0.4)",marginBottom:2}},k),
+                e("div",{style:{fontSize:16,fontWeight:700,
+                  color:k==="Total Spent"?C.amb:k==="Balance"&&getSiteBudget(site)>0?C.grn:"#fff"}},
+                  "₦"+fmtShort(v))
+              )
+            )
+          ),
+          getSiteBudget(site)>0&&e("div",null,
+            e("div",{style:{height:6,background:"rgba(255,255,255,0.1)",borderRadius:3,overflow:"hidden",marginBottom:4}},
+              e("div",{style:{height:"100%",borderRadius:3,
+                width:Math.min(pct(siteTotalSpent,getSiteBudget(site)),100)+"%",
+                background:pctColor(pct(siteTotalSpent,getSiteBudget(site))),transition:"width 0.4s"}})
+            ),
+            e("div",{style:{fontSize:10,color:"rgba(255,255,255,0.4)",textAlign:"right"}},
+              pct(siteTotalSpent,getSiteBudget(site)).toFixed(2)+"% of budget spent")
+          )
+        ),
+
+        // Weekly trend
+        weekRows.length>0&&e("div",{style:{...IS.card,marginBottom:12}},
+          e("div",{style:{fontSize:12,fontWeight:700,color:C.tx,marginBottom:10}},
+            "Weekly Expenditure"),
+          e("div",{style:{fontSize:10,color:C.tx2,marginBottom:10}},
+            "Last "+Math.min(weekRows.length,6)+" weeks · For complete weekly data see Log tab"),
+          weekRows.slice(0,6).map(wr=>{
+            const max=Math.max(...weekRows.slice(0,6).map(r=>r.gross),1);
+            return e("div",{key:wr.week,style:{marginBottom:8}},
+              e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:3}},
+                e("span",{style:{fontSize:11,color:C.tx2,fontWeight:500}},wr.week),
+                e("span",{style:{fontSize:11,fontWeight:700,color:C.nav}},"₦"+fmtShort(wr.gross))
+              ),
+              e("div",{style:{height:6,background:C.bg,borderRadius:3,overflow:"hidden",marginBottom:2}},
+                e("div",{style:{height:"100%",width:(wr.gross/max*100)+"%",
+                  background:C.nav,borderRadius:3,transition:"width 0.3s"}})
+              ),
+              e("div",{style:{display:"flex",gap:12,fontSize:9,color:C.tx3}},
+                e("span",null,"Mat: ₦"+fmtShort(wr.mat)),
+                e("span",null,"Lab: ₦"+fmtShort(wr.lab)),
+                wr.other>0&&e("span",null,"Other: ₦"+fmtShort(wr.other))
+              )
+            );
+          })
+        ),
+
+        // Element breakdown
+        e("div",{style:{fontSize:12,fontWeight:700,color:C.tx,marginBottom:8}},"Spend by Work Element"),
+        ELEM_KEYS.filter(k=>(spendMap[site]?.[k]?.total||0)>0||budgets[site]?.[k])
+          .sort((a,b)=>(spendMap[site]?.[b]?.total||0)-(spendMap[site]?.[a]?.total||0))
+          .map(k=>{
+            const el=ELEMENTS[k];
+            const spent=spendMap[site]?.[k]?.total||0;
+            const budget=budgets[site]?.[k]||0;
+            const p=budget?pct(spent,budget):0;
+            const isExp=expandedElem===k;
+            return e("div",{key:k,style:{...IS.card,padding:0,overflow:"hidden",marginBottom:8}},
+              e("button",{onClick:()=>setExpandedElem(isExp?null:k),style:{
+                width:"100%",background:isExp?C.nav:C.card,border:"none",
+                padding:"10px 12px",cursor:"pointer",textAlign:"left",
+                borderBottom:isExp?`1px solid ${C.nav2}`:"none"
+              }},
+                e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                  e("div",{style:{width:28,height:28,borderRadius:6,display:"flex",alignItems:"center",
+                    justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0,
+                    background:isExp?"rgba(255,255,255,0.1)":C.bg,
+                    color:isExp?"#fff":C.nav,border:`1px solid ${isExp?C.nav2:C.bdr}`}},el.code),
+                  e("div",{style:{flex:1,minWidth:0}},
+                    e("div",{style:{fontSize:12,fontWeight:600,color:isExp?"#fff":C.tx,marginBottom:3}},el.label),
+                    budget>0&&e("div",{style:{height:3,background:isExp?"rgba(255,255,255,0.15)":C.bdr,borderRadius:2,overflow:"hidden"}},
+                      e("div",{style:{height:"100%",width:Math.min(p,100)+"%",background:pctColor(p),borderRadius:2}})
+                    )
+                  ),
+                  e("div",{style:{textAlign:"right",flexShrink:0}},
+                    e("div",{style:{fontSize:12,fontWeight:700,color:isExp?C.amb:C.nav}},"₦"+fmtShort(spent)),
+                    budget>0&&e("div",{style:{fontSize:9,color:isExp?"rgba(255,255,255,0.4)":C.tx3}},
+                      "/ ₦"+fmtShort(budget)+" ("+p.toFixed(1)+"%)"),
+                    !budget&&e("div",{style:{fontSize:9,color:isExp?"rgba(255,255,255,0.3)":C.tx3}},"no budget set")
+                  )
+                )
+              ),
+              isExp&&e("div",{style:{padding:"8px 0",background:C.nav2}},
+                el.items.map(it=>{
+                  const itSpent=spendMap[site]?.[k]?.items?.[it.ref]||0;
+                  return itSpent>0&&e("div",{key:it.ref,style:{padding:"6px 12px",borderBottom:"1px solid rgba(255,255,255,0.04)"}},
+                    e("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                      e("div",{style:{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.4)",width:24,flexShrink:0}},it.ref),
+                      e("div",{style:{flex:1,fontSize:11,color:"rgba(255,255,255,0.75)",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},it.desc),
+                      e("div",{style:{fontSize:11,fontWeight:600,color:C.amb,flexShrink:0,marginLeft:8}},"₦"+fmtShort(itSpent))
+                    )
+                  );
+                }).filter(Boolean)
+              )
+            );
+          }),
+
+        (ELEM_KEYS.filter(k=>(spendMap[site]?.[k]?.total||0)>0).length===0)&&
+          e("div",{style:{textAlign:"center",padding:"24px",color:C.tx3,fontSize:12}},
+            "No entries recorded for this site yet.")
+      )
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ─ LOG TAB ─────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    tab==="log"&&e("div",{style:{padding:"12px 16px 32px"}},
+
+      // Filters
+      e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}},
+        e("select",{value:logFilter.site,onChange:ev=>setLogFilter(f=>({...f,site:ev.target.value})),style:IS.input},
+          e("option",{value:""},"All sites"),
+          SITES.map(s=>e("option",{key:s,value:s},s))
+        ),
+        e("select",{value:logFilter.type,onChange:ev=>setLogFilter(f=>({...f,type:ev.target.value})),style:IS.input},
+          e("option",{value:""},"All types"),
+          e("option",{value:"wage_bill"},"Wage Bills"),
+          e("option",{value:"cost_entry"},"Cost Entries")
+        )
+      ),
+      e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}},
+        e("select",{value:logFilter.elem,onChange:ev=>setLogFilter(f=>({...f,elem:ev.target.value})),style:IS.input},
+          e("option",{value:""},"All elements"),
+          ELEM_KEYS.map(k=>e("option",{key:k,value:k},`${ELEMENTS[k].code} — ${ELEMENTS[k].label}`))
+        ),
+        e("input",{type:"text",value:logFilter.week,placeholder:"Filter week e.g. W01/06",
+          onChange:ev=>setLogFilter(f=>({...f,week:ev.target.value})),style:IS.input})
+      ),
+
+      // Unsynced banner
+      entries.some(en=>en.status!=="sent")&&e("div",{style:{
+        display:"flex",alignItems:"center",justifyContent:"space-between",
+        background:C.wrnl,border:`1px solid #FCD34D`,borderRadius:6,
+        padding:"7px 11px",marginBottom:10,fontSize:12}},
+        e("span",{style:{color:C.wrn}},entries.filter(en=>en.status!=="sent").length+" unsynced entries"),
+        e("button",{onClick:retrySync,style:{
+          background:C.wrn,color:"#fff",border:"none",borderRadius:4,
+          padding:"4px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}},"Sync now")
+      ),
+
+      // Weekly summary
+      weekRows.filter(wr=>!logFilter.site||(entries.filter(en=>en.site===logFilter.site&&en.weekRef===wr.week).length>0))
+        .filter(wr=>!logFilter.week||wr.week.toLowerCase().includes(logFilter.week.toLowerCase()))
+        .slice(0,12)
+        .map(wr=>e("div",{key:wr.week,style:{background:C.navl,border:`1px solid ${C.nav}`,
+          borderRadius:8,padding:"8px 12px",marginBottom:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+            e("span",{style:{fontSize:11,fontWeight:700,color:C.nav}},"Week: "+wr.week),
+            e("span",{style:{fontSize:12,fontWeight:700,color:C.nav2}},
+              "₦"+fmtN(wr.gross)+" gross")
+          ),
+          e("div",{style:{display:"flex",gap:16,fontSize:10,color:C.tx2}},
+            e("span",null,"Mat: ₦"+fmtShort(wr.mat)),
+            e("span",null,"Lab: ₦"+fmtShort(wr.lab)),
+            wr.other>0&&e("span",null,"Other: ₦"+fmtShort(wr.other)),
+            e("span",{style:{color:C.tx3}},
+              entries.filter(en=>en.weekRef===wr.week&&(!logFilter.site||en.site===logFilter.site)).length+" entries")
+          )
+        )),
+
+      // Entry cards
+      entries
+        .filter(en=>(!logFilter.site||en.site===logFilter.site)
+               &&(!logFilter.type||en.entryType===logFilter.type)
+               &&(!logFilter.week||en.weekRef?.toLowerCase().includes(logFilter.week.toLowerCase()))
+               &&(!logFilter.elem||en.entryType!=="cost_entry"||en.elemKey===logFilter.elem))
+        .map(en=>e("div",{key:en.id,style:{...IS.card,padding:"10px 12px"}},
+          e("button",{onClick:()=>setExpandedEntry(expandedEntry===en.id?null:en.id),
+            style:{width:"100%",background:"none",border:"none",textAlign:"left",cursor:"pointer",padding:0}},
+            e("div",{style:{display:"flex",alignItems:"flex-start",gap:8}},
+              e("div",{style:{background:en.entryType==="wage_bill"?C.amb:C.nav,color:"#fff",
+                borderRadius:4,padding:"3px 7px",fontSize:10,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}},
+                en.entryType==="wage_bill"?"📋 WB":"📊 CE"),
+              e("div",{style:{flex:1,minWidth:0}},
+                e("div",{style:{fontSize:11,fontWeight:700,color:C.tx,marginBottom:2}},en.site),
+                e("div",{style:{display:"flex",flexWrap:"wrap",gap:4,marginTop:3}},
+                  e("span",{style:{fontSize:9,padding:"2px 6px",borderRadius:3,
+                    background:C.navl,color:C.nav,fontWeight:600}},
+                    en.entryType==="wage_bill"?en.supervisor:en.elemLabel||""),
+                  e("span",{style:{fontSize:9,color:C.tx3}},en.date),
+                  e("span",{style:{fontSize:9,color:C.tx3}},en.weekRef),
+                  en.status==="sent"&&e("span",{style:{fontSize:9,color:C.grn2}},"✓ Synced"),
+                  en.entryType==="wage_bill"&&en.items?.some(i=>i.isTransfer)&&
+                    e("span",{style:{fontSize:9,color:C.wrn,fontWeight:600}},"⇄ Transfer")
+                )
+              ),
+              e("div",{style:{textAlign:"right",flexShrink:0}},
+                e("div",{style:{fontSize:13,fontWeight:700,color:C.nav}},
+                  "₦"+fmtN(en.entryType==="wage_bill"?en.total:en.amount)),
+                e("div",{style:{fontSize:9,color:C.tx3,marginTop:2}},
+                  en.entryType==="wage_bill"?`${en.items?.length||0} items`:
+                  `${en.costType} · ${en.itemRef}`)
+              )
+            )
+          ),
+          expandedEntry===en.id&&e("div",{style:{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.bdr}`}},
+            en.entryType==="wage_bill"&&e("div",null,
+              (en.items||[]).map((item,i)=>e("div",{key:i,style:{
+                background:C.bg,borderRadius:6,padding:"6px 10px",marginBottom:5}},
+                e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+                  e("div",{style:{flex:1}},
+                    e("div",{style:{fontSize:11,fontWeight:600,color:C.tx}},item.workDesc),
+                    e("div",{style:{fontSize:10,color:C.tx2}},
+                      `${item.desig}${item.workers?" · "+item.workers+" workers":""}${item.rate?" @ ₦"+fmtShort(item.rate):""}${item.elemKey?" · "+ELEMENTS[item.elemKey]?.code+"—"+item.itemRef:""}`),
+                    e("span",{style:{fontSize:9,padding:"1px 5px",borderRadius:3,
+                      background:item.costType==="Materials"?C.grnl:item.costType==="Labour"?C.ambl:C.bg,
+                      color:item.costType==="Materials"?C.grn:item.costType==="Labour"?C.wrn:C.tx2,fontWeight:600}},
+                      item.costType),
+                    item.isTransfer&&e("span",{style:{fontSize:9,color:C.wrn,marginLeft:4}},
+                      " ⇄ from "+item.transferFrom)
+                  ),
+                  e("div",{style:{fontSize:12,fontWeight:700,color:C.nav,marginLeft:8}},"₦"+fmtN(item.amount))
+                )
+              ))
+            ),
+            en.entryType==="cost_entry"&&e("div",{style:{background:C.bg,borderRadius:6,padding:"8px 10px"}},
+              e("div",{style:{fontSize:11,fontWeight:600,color:C.tx,marginBottom:3}},en.workDesc),
+              e("div",{style:{fontSize:10,color:C.tx2}},`${en.elemLabel} → ${en.itemRef} | ${en.itemDesc?.substring(0,60)}`),
+              en.qty&&e("div",{style:{fontSize:10,color:C.tx3}},`${en.qty} ${en.unit} @ ₦${fmt(en.rate||0)}`),
+              en.notes&&e("div",{style:{fontSize:10,color:C.tx3,marginTop:3,fontStyle:"italic"}},en.notes)
+            )
+          )
+        )),
+
+      entries.length===0&&e("div",{style:{textAlign:"center",padding:"32px 0",color:C.tx3,fontSize:12}},
+        e("div",{style:{fontSize:28,marginBottom:8}},"🗂"),
+        "No entries yet. Use the Record tab to submit wage bills or cost entries.")
+    ),
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ─ SETTINGS TAB ────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    tab==="settings"&&e("div",{style:{padding:"12px 16px 32px"}},
+
+      // Google Sheets URL
+      e("div",{style:IS.card},
+        e("div",{style:{fontSize:12,fontWeight:700,color:C.tx,marginBottom:8}},"Google Sheets Integration"),
+        e("p",{style:{fontSize:11,color:C.tx2,marginBottom:10,lineHeight:1.5}},
+          "The Apps Script below creates three sheets in your Google Sheets file:",e("br"),
+          e("strong",null,"WAGE BILLS")," — all supervisor wage bill submissions",e("br"),
+          e("strong",null,"COST LOG")," — all QS cost entries",e("br"),
+          e("strong",null,"WEEKLY TRACKER")," — aggregated by site & week (mirrors your tracker format)"
+        ),
+        e("label",{style:IS.label},"Apps Script Deployment URL"),
+        e("input",{type:"url",value:url,placeholder:"https://script.google.com/macros/s/…/exec",
+          onChange:ev=>setUrl(ev.target.value),style:{...IS.input,marginBottom:8}}),
+        e("button",{onClick:saveConfig,style:IS.btn(C.nav)},"Save URL"),
+        url&&e("button",{onClick:retrySync,style:{...IS.btn("transparent",C.nav),
+          border:`1px solid ${C.bdr}`,marginTop:8}},
+          "Re-sync pending entries ("+entries.filter(en=>en.status!=="sent").length+" pending)")
+      ),
+
+      // Budget configuration
+      e("div",{style:IS.card},
+        e("div",{style:{fontSize:12,fontWeight:700,color:C.tx,marginBottom:4}},"Budget Configuration"),
+        e("p",{style:{fontSize:11,color:C.tx2,marginBottom:10,lineHeight:1.5}},
+          "Once your M&L schedules are ready, enter element-level budgets per site here. ",
+          "These enable budget vs actual tracking on the Analytics tab and in Cost Entry mode."
+        ),
+        e("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+          e("div",null,
+            e("label",{style:IS.label},"Site"),
+            e("select",{value:budgetSite,onChange:ev=>setBudgetSite(ev.target.value),
+              style:{...IS.input,appearance:"none"}},
+              e("option",{value:""},"— Site —"),
+              SITES.map(s=>e("option",{key:s,value:s},s))
+            )
+          ),
+          e("div",null,
+            e("label",{style:IS.label},"Work Element"),
+            e("select",{value:budgetElem,onChange:ev=>setBudgetElem(ev.target.value),
+              style:{...IS.input,appearance:"none"}},
+              e("option",{value:""},"— Element —"),
+              ELEM_KEYS.map(k=>e("option",{key:k,value:k},`${ELEMENTS[k].code} — ${ELEMENTS[k].label}`))
+            )
+          )
+        ),
+        e("label",{style:IS.label},"Budget Amount (₦)"),
+        e("input",{type:"number",value:budgetAmt,placeholder:"Enter budget for this site/element",
+          onChange:ev=>setBudgetAmt(ev.target.value),style:{...IS.input,marginBottom:8}}),
+        e("button",{onClick:saveBudget,style:IS.btn(C.nav)},"Save Budget"),
+
+        // Show configured budgets
+        Object.keys(budgets).length>0&&e("div",{style:{marginTop:12,fontSize:11,color:C.tx2,fontWeight:600,marginBottom:6}},"Configured Budgets:"),
+        ...Object.entries(budgets).map(([s,elems])=>
+          Object.entries(elems).map(([ek,bv])=>
+            e("div",{key:s+ek,style:{display:"flex",justifyContent:"space-between",
+              padding:"4px 8px",background:C.bg,borderRadius:4,marginBottom:3}},
+              e("span",{style:{fontSize:10,color:C.tx2}},s+" / "+ELEMENTS[ek]?.label),
+              e("span",{style:{fontSize:10,fontWeight:600,color:C.nav}},"₦"+fmt(bv))
+            )
+          )
+        ).flat()
+      ),
+
+      // Apps Script code
+      e("div",{style:IS.card},
+        e("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+          e("div",{style:{fontSize:12,fontWeight:700,color:C.tx}},"Apps Script Code"),
+          e("button",{onClick:()=>{
+            try{navigator.clipboard.writeText(GS_SCRIPT);}catch(_){}
+            setCopied(true);setTimeout(()=>setCopied(false),2000);
+          },style:{background:copied?C.grn:C.bg,color:copied?"#fff":C.tx2,
+            border:`1px solid ${copied?C.grn:C.bdr}`,padding:"4px 10px",
+            borderRadius:4,fontSize:11,fontWeight:600,cursor:"pointer"}},
+            copied?"Copied ✓":"Copy code")
+        ),
+        e("p",{style:{fontSize:11,color:C.tx2,marginBottom:8,lineHeight:1.5}},
+          "1. Open your Google Sheet → Extensions → Apps Script",e("br"),
+          "2. Replace existing code with the script below",e("br"),
+          "3. Deploy → New Deployment → Web app (Execute: Me | Access: Anyone)",e("br"),
+          "4. Copy the URL and paste it in the field above → Save"
+        ),
+        e("pre",{style:{margin:0,fontSize:9,color:C.tx2,background:C.bg,
+          padding:"10px",borderRadius:6,overflowX:"auto",lineHeight:1.6,
+          whiteSpace:"pre-wrap",wordBreak:"break-word",maxHeight:320,overflowY:"auto"}},
+          GS_SCRIPT)
+      ),
+
+      // Data management
+      e("div",{style:IS.card},
+        e("div",{style:{fontSize:12,fontWeight:700,color:C.tx,marginBottom:6}},"Data"),
+        e("div",{style:{fontSize:11,color:C.tx2,marginBottom:10}},
+          entries.length+" entries stored · "+entries.filter(en=>en.status==="sent").length+" synced to Sheets"),
+        e("button",{onClick:clearAll,style:{...IS.btn(C.redl,C.red),border:`1px solid ${C.red}`}},
+          "Clear all local entries")
+      ),
+
+      e("div",{style:{...IS.card,background:C.bg,border:"none"}},
+        e("div",{style:{fontSize:10,color:C.tx3,textAlign:"center",lineHeight:1.8}},
+          "Sunville Developers — Cost & Wage Bill Tracker v2.0",e("br"),
+          "24 Active Sites · Generic BOQ Framework · Multi-mode Entry",e("br"),
+          "Prepared by PFTC Global Resources Limited")
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(e(App));
+</script>
+</body>
+</html>
